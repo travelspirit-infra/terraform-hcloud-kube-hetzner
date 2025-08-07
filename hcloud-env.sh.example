@@ -1,0 +1,6 @@
+#!/bin/bash
+# Copy this file to hcloud-env.sh and fill in your actual tokens
+# NEVER commit the actual hcloud-env.sh file!
+
+export HCLOUD_TOKEN="your-hetzner-cloud-api-token-here"
+export CLOUDFLARE_API_TOKEN="your-cloudflare-api-token-here"

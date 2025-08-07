@@ -1,0 +1,93 @@
+# Helm values for Actions Runner Controller on ARM64 K3s cluster
+# This configuration is optimized for Hetzner CAX instances (ARM64)
+
+# Controller configuration
+controller:
+  # Use the official controller image that supports ARM64
+  image:
+    repository: ghcr.io/actions/actions-runner-controller
+    pullPolicy: IfNotPresent
+  
+  # Ensure controller runs on ARM64 nodes
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  
+  # Resources for controller pod
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Enable metrics for monitoring
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false  # Enable if Prometheus is installed
+
+# Webhook configuration (for autoscaling)
+webhook:
+  enabled: true
+  
+  # Ensure webhook runs on ARM64 nodes
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# GitHub authentication configuration
+# Note: We'll use Kubernetes secret for storing the token
+authSecret:
+  create: false  # We'll create it manually for better security
+  name: controller-manager
+
+# Runner configuration defaults
+# These can be overridden in individual RunnerDeployment resources
+defaultRunnerImage: ghcr.io/actions/runner:latest
+defaultRunnerTag: latest
+
+# Enable runner registration token caching
+runnerRegistrationTokenCacheEnabled: true
+
+# Log level for debugging
+logLevel: info
+
+# Pod Security Standards
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Tolerations for IPv6-only nodes if needed
+tolerations: []
+
+# Affinity rules to spread controller across nodes
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - actions-runner-controller
+        topologyKey: kubernetes.io/hostname
+
+# Service Account
+serviceAccount:
+  create: true
+  name: actions-runner-controller
+
+# RBAC
+rbac:
+  create: true
