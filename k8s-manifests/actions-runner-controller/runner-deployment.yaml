@@ -1,0 +1,142 @@
+# GitHub Actions Runner Deployment for TravelSpirit
+# This creates self-hosted runners on the K3s cluster
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: travelspirit-runners
+  namespace: actions-runner-system
+spec:
+  # Number of runner pods to maintain
+  replicas: 2
+  
+  template:
+    metadata:
+      labels:
+        app: github-runner
+        organization: travelspirit
+    
+    spec:
+      # Configure for repository or organization level runners
+      # Option 1: Organization-level runners (recommended)
+      # organization: travelspirit-infra
+      
+      # Option 2: Repository-level runners (specify exact repo)
+      repository: travelspirit-infra/travelspirit
+      
+      # Runner group (optional, for organization runners)
+      # group: default
+      
+      # Labels for workflow job selection
+      labels:
+      - self-hosted
+      - linux
+      - arm64
+      - hetzner
+      
+      # Ensure runners are placed on ARM64 worker nodes
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        node-role.kubernetes.io/worker: "true"
+      
+      # Resource allocation for each runner pod
+      resources:
+        limits:
+          cpu: "3"
+          memory: "6Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+      
+      # Enable Docker-in-Docker for container builds
+      dockerdWithinRunnerContainer: true
+      
+      # Use specific runner image that supports ARM64
+      image: ghcr.io/actions/runner:latest
+      
+      # Environment variables for runners
+      env:
+      - name: RUNNER_DEBUG
+        value: "false"
+      - name: DOCKER_HOST
+        value: unix:///var/run/docker.sock
+      
+      # Volume mounts for Docker socket (if not using DinD)
+      # volumeMounts:
+      # - name: docker-sock
+      #   mountPath: /var/run/docker.sock
+      
+      # volumes:
+      # - name: docker-sock
+      #   hostPath:
+      #     path: /var/run/docker.sock
+      #     type: Socket
+      
+      # Security context for runner pods
+      securityContext:
+        # Run as non-root user (runner user in container)
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      
+      # Tolerations for node conditions
+      tolerations:
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 300
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 300
+      
+      # Anti-affinity to spread runners across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - github-runner
+              topologyKey: kubernetes.io/hostname
+
+---
+# HorizontalRunnerAutoscaler for automatic scaling based on GitHub workflow queue
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: travelspirit-runners-autoscaler
+  namespace: actions-runner-system
+spec:
+  scaleTargetRef:
+    name: travelspirit-runners
+  
+  # Minimum and maximum number of runners
+  minReplicas: 1
+  maxReplicas: 5
+  
+  # Scaling metrics based on workflow queue
+  metrics:
+  - type: PercentageRunnersBusy
+    scaleUpThreshold: 75    # Scale up when 75% of runners are busy
+    scaleDownThreshold: 25  # Scale down when only 25% are busy
+    scaleUpFactor: 1.5      # Scale up by 50%
+    scaleDownFactor: 0.5    # Scale down by 50%
+  
+  # Scaling behavior to prevent flapping
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60

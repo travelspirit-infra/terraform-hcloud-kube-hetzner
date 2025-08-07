@@ -1,0 +1,121 @@
+# Traefik SSL Configuration without cert-manager
+# This uses Traefik's built-in Let's Encrypt support
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traefik-ssl-config
+  namespace: kube-system
+data:
+  traefik-config.yaml: |
+    # Enable Let's Encrypt
+    certificatesResolvers:
+      letsencrypt:
+        acme:
+          email: patrick@travelspirit.nl
+          storage: /data/acme.json
+          httpChallenge:
+            entryPoint: web
+          # Use staging for testing, change to prod when ready
+          # caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+          caServer: https://acme-v02.api.letsencrypt.org/directory
+    
+    # Redirect HTTP to HTTPS
+    entryPoints:
+      web:
+        address: ":80"
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+      websecure:
+        address: ":443"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: traefik
+    spec:
+      serviceAccountName: traefik
+      containers:
+      - name: traefik
+        image: traefik:3.2
+        args:
+        - --api.insecure=true
+        - --providers.kubernetesingress
+        - --providers.kubernetescrd
+        - --entrypoints.web.address=:80
+        - --entrypoints.websecure.address=:443
+        - --certificatesresolvers.letsencrypt.acme.email=patrick@travelspirit.nl
+        - --certificatesresolvers.letsencrypt.acme.storage=/data/acme.json
+        - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+        - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+        - --log.level=INFO
+        ports:
+        - name: web
+          containerPort: 80
+          hostPort: 80
+        - name: websecure
+          containerPort: 443
+          hostPort: 443
+        volumeMounts:
+        - name: acme
+          mountPath: /data
+      volumes:
+      - name: acme
+        hostPath:
+          path: /var/lib/traefik
+          type: DirectoryOrCreate
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k8s-dashboard-ssl
+  namespace: default
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: k8s.travelspirit.cloud
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hello-world
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - k8s.travelspirit.cloud
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: hello-world-ssl
+  namespace: default
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`k8s.travelspirit.cloud`)
+    kind: Rule
+    services:
+    - name: hello-world
+      port: 80
+  tls:
+    certResolver: letsencrypt

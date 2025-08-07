@@ -1,0 +1,8 @@
+# Hetzner Cloud API Token
+hcloud_token = "your-hetzner-cloud-token"
+
+# Cloudflare API Token
+cloudflare_api_token = "your-cloudflare-api-token"
+
+# Optional: Override zone ID if different
+# cloudflare_zone_id = "your-zone-id"

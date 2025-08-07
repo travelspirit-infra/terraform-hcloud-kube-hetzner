@@ -48,3 +48,15 @@ CLAUDE.md
 
 # Misc
 .DS_Store
+
+# Sensitive files - NEVER commit these
+hcloud-env.sh
+*.pem
+*.key
+*.crt
+*_kubeconfig.yaml
+*_kubeconfig.yaml-e
+*_kustomization_backup.yaml
+tfplan
+.env
+.env.*
