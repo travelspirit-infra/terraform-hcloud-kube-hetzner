@@ -1,0 +1,399 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    environment: production
+    name: monitoring
+    project: k3s-monitoring
+  name: monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  name: otel-collector
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  name: otel-collector
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/metrics
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  - pods/log
+  - namespaces
+  - configmaps
+  - events
+  - resourcequotas
+  - replicationcontrollers
+  - limitranges
+  - persistentvolumeclaims
+  - persistentvolumes
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- nonResourceURLs:
+  - /metrics
+  - /metrics/cadvisor
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  name: otel-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-collector
+subjects:
+- kind: ServiceAccount
+  name: otel-collector
+  namespace: monitoring
+---
+apiVersion: v1
+data:
+  otel-collector-config.yaml: "receivers:\n  prometheus:\n    config:\n      scrape_configs:\n
+    \       - job_name: 'node-exporter'\n          scrape_interval: 30s\n          kubernetes_sd_configs:\n
+    \           - role: pod\n              namespaces:\n                names:\n                  -
+    monitoring\n          relabel_configs:\n            - source_labels: [__meta_kubernetes_pod_label_app]\n
+    \             action: keep\n              regex: node-exporter\n            -
+    source_labels: [__meta_kubernetes_pod_node_name]\n              action: replace\n
+    \             target_label: node\n            - source_labels: [__meta_kubernetes_namespace]\n
+    \             action: replace\n              target_label: namespace\n            -
+    source_labels: [__meta_kubernetes_pod_name]\n              action: replace\n              target_label:
+    pod\n            - source_labels: [__meta_kubernetes_pod_container_name]\n              action:
+    replace\n              target_label: container\n            - source_labels: [__address__]\n
+    \             action: replace\n              regex: ([^:]+)(?::\\d+)?\n              replacement:
+    $1:9100\n              target_label: __address__\n\nprocessors:\n  batch:\n    send_batch_size:
+    10000\n    timeout: 10s\n    send_batch_max_size: 15000\n  \n  memory_limiter:\n
+    \   check_interval: 1s\n    limit_mib: 512\n    spike_limit_mib: 128\n  \n  resource:\n
+    \   attributes:\n    - key: cluster\n      value: k3s-cluster\n      action: insert\n
+    \   - key: environment\n      value: production\n      action: insert\n\nexporters:\n
+    \ prometheusremotewrite:\n    endpoint: \"https://prometheus.travelspirit.cloud/api/v1/write\"\n
+    \   tls:\n      insecure_skip_verify: true\n    resource_to_telemetry_conversion:\n
+    \     enabled: true\n    add_metric_suffixes: true\n    headers:\n      X-Scope-OrgID:
+    \"travelspirit\"\n    sending_queue:\n      enabled: true\n      queue_size: 10000\n
+    \     num_consumers: 5\n    retry_on_failure:\n      enabled: true\n      initial_interval:
+    5s\n      max_interval: 30s\n      max_elapsed_time: 300s\n  \n  debug:\n    verbosity:
+    normal\n    sampling_initial: 5\n    sampling_thereafter: 200\n\nextensions:\n
+    \ health_check:\n    endpoint: 0.0.0.0:13133\n  \n  pprof:\n    endpoint: 0.0.0.0:1777\n
+    \ \n  zpages:\n    endpoint: 0.0.0.0:55679\n\nservice:\n  extensions: [health_check,
+    pprof, zpages]\n  pipelines:\n    metrics:\n      receivers: [prometheus]\n      processors:
+    [memory_limiter, batch, resource]\n      exporters: [prometheusremotewrite, debug]\n
+    \ telemetry:\n    logs:\n      level: info\n    metrics:\n      level: detailed\n
+    \     address: 0.0.0.0:8888"
+kind: ConfigMap
+metadata:
+  labels:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  name: otel-collector-config
+  namespace: monitoring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: node-exporter
+    environment: production
+    project: k3s-monitoring
+  name: node-exporter
+  namespace: monitoring
+spec:
+  clusterIP: None
+  ports:
+  - name: metrics
+    port: 9100
+    protocol: TCP
+    targetPort: 9100
+  selector:
+    app: node-exporter
+    environment: production
+    project: k3s-monitoring
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  name: otel-collector
+  namespace: monitoring
+spec:
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    protocol: TCP
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    protocol: TCP
+    targetPort: 4318
+  - name: metrics
+    port: 8888
+    protocol: TCP
+    targetPort: 8888
+  - name: health
+    port: 13133
+    protocol: TCP
+    targetPort: 13133
+  selector:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: otel-collector
+    environment: production
+    project: k3s-monitoring
+  name: otel-collector
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+      environment: production
+      project: k3s-monitoring
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8888"
+        prometheus.io/scrape: "true"
+      labels:
+        app: otel-collector
+        environment: production
+        project: k3s-monitoring
+    spec:
+      containers:
+      - args:
+        - --config=/conf/otel-collector-config.yaml
+        env:
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        image: otel/opentelemetry-collector-contrib:latest
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 13133
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: otel-collector
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+          protocol: TCP
+        - containerPort: 4318
+          name: otlp-http
+          protocol: TCP
+        - containerPort: 8888
+          name: metrics
+          protocol: TCP
+        - containerPort: 13133
+          name: health
+          protocol: TCP
+        - containerPort: 1777
+          name: pprof
+          protocol: TCP
+        - containerPort: 55679
+          name: zpages
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 13133
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+        volumeMounts:
+        - mountPath: /conf
+          name: config
+          readOnly: true
+      serviceAccountName: otel-collector
+      volumes:
+      - configMap:
+          items:
+          - key: otel-collector-config.yaml
+            path: otel-collector-config.yaml
+          name: otel-collector-config
+        name: config
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: node-exporter
+    environment: production
+    project: k3s-monitoring
+  name: node-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+      environment: production
+      project: k3s-monitoring
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9100"
+        prometheus.io/scrape: "true"
+      labels:
+        app: node-exporter
+        environment: production
+        project: k3s-monitoring
+    spec:
+      containers:
+      - args:
+        - --path.rootfs=/host
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+        - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+        image: quay.io/prometheus/node-exporter:latest
+        name: node-exporter
+        ports:
+        - containerPort: 9100
+          name: metrics
+          protocol: TCP
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+        volumeMounts:
+        - mountPath: /host
+          mountPropagation: HostToContainer
+          name: rootfs
+          readOnly: true
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /
+        name: rootfs

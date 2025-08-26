@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 60s
+      evaluation_interval: 60s
+      external_labels:
+        cluster: 'k3s-hetzner'
+        region: 'eu-central'
+
+    remote_write:
+    - url: "https://prometheus.travelspirit.cloud/api/v1/write"
+      write_relabel_configs:
+      # Only send the specific metrics we want
+      - source_labels: [__name__]
+        regex: 'node_(cpu_seconds_total|load1|load5|load15|memory_MemTotal_bytes|memory_MemAvailable_bytes|memory_SwapTotal_bytes|memory_SwapFree_bytes|filesystem_size_bytes|filesystem_avail_bytes|filesystem_free_bytes)'
+        action: keep
+
+    scrape_configs:
+    - job_name: 'k3s-node-exporter'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - monitoring
+      relabel_configs:
+      # Only scrape services with prometheus.io/scrape annotation
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Use the service port name if available
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      # Add node labels
+      - source_labels: [__meta_kubernetes_endpoint_node_name]
+        target_label: node
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      metric_relabel_configs:
+      # Keep only the specific metrics we want
+      - source_labels: [__name__]
+        regex: 'node_(cpu_seconds_total|load1|load5|load15|memory_MemTotal_bytes|memory_MemAvailable_bytes|memory_SwapTotal_bytes|memory_SwapFree_bytes|filesystem_size_bytes|filesystem_avail_bytes|filesystem_free_bytes)'
+        action: keep
+      # Only keep root filesystem and ignore tmpfs, devtmpfs, etc.
+      - source_labels: [fstype]
+        regex: '(tmpfs|devtmpfs|proc|sysfs|cgroup.*)'
+        action: drop
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.54.1
+        args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus/
+        - --web.console.libraries=/etc/prometheus/console_libraries
+        - --web.console.templates=/etc/prometheus/consoles
+        - --web.enable-lifecycle
+        - --storage.tsdb.retention.time=1h
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/prometheus/
+        - name: prometheus-storage-volume
+          mountPath: /prometheus/
+      volumes:
+      - name: config-volume
+        configMap:
+          name: prometheus-config
+      - name: prometheus-storage-volume
+        emptyDir: {}
+      tolerations:
+      - key: architecture
+        operator: Equal
+        value: arm64
+        effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  ports:
+  - port: 9090
+    targetPort: 9090
+    name: web
+  selector:
+    app: prometheus
+  type: ClusterIP

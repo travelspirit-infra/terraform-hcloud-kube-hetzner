@@ -43,9 +43,6 @@ kube.tf
 .terraform.lock.hcl
 issue_fix.patch
 
-# AI related files
-CLAUDE.md
-
 # Misc
 .DS_Store
 
@@ -60,3 +57,17 @@ hcloud-env.sh
 tfplan
 .env
 .env.*
+
+# VTB deployment files with secrets
+deployments/vtb-test-deployment.yaml
+deployments/cloudflare-dns-issuer.yaml
+deployments/*-job.yaml
+
+# Additional secret patterns
+*secret*.yaml
+*-secrets.yaml
+*.wg.conf
+*-token*
+
+# Claude Code MCP configuration with API keys
+.mcp.json

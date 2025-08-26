@@ -2,5 +2,10 @@
 # Copy this file to hcloud-env.sh and fill in your actual tokens
 # NEVER commit the actual hcloud-env.sh file!
 
+# Hetzner Cloud API Token (required)
+# The hcloud provider will automatically use this environment variable
 export HCLOUD_TOKEN="your-hetzner-cloud-api-token-here"
+
+# Cloudflare API Token (required for DNS management)
+# Used for managing DNS records for travelspirit.cloud and visualtourbuilder.com
 export CLOUDFLARE_API_TOKEN="your-cloudflare-api-token-here"

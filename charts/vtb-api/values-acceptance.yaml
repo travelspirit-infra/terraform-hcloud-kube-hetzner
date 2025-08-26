@@ -1,0 +1,55 @@
+# Acceptance environment specific values
+replicaCount: 1
+
+image:
+  tag: 'latest' # Will be overridden during deployment with specific commit SHA
+
+environment: acceptance
+
+ingress:
+  hosts:
+    - host: vtb-api-acceptance.k8s.travelspirit.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: vtb-api-acceptance-tls
+      hosts:
+        - vtb-api-acceptance.k8s.travelspirit.cloud
+
+# Full resource allocation for acceptance environment
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Database configuration for acceptance (automatically configured by CloudNativePG)
+# The database host will be: {release-name}-postgres-rw.{namespace}.svc.cluster.local
+
+app:
+  nodeEnv: acceptance
+  logLevel: info
+
+# CloudNativePG configuration for acceptance environment
+postgresql:
+  enabled: true
+  cluster:
+    instances: 1 # Single instance for acceptance
+    storage:
+      size: '20Gi' # Larger storage for acceptance data
+      storageClass: 'hcloud-volumes'
+    resources:
+      requests:
+        memory: '512Mi'
+        cpu: '250m'
+      limits:
+        memory: '1Gi'
+        cpu: '500m'
+
+  # Enable monitoring for acceptance environment
+  monitoring:
+    enabled: true
+    prometheusRule: true

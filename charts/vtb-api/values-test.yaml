@@ -1,0 +1,50 @@
+# Test environment specific values (lightweight for PR/feature testing)
+replicaCount: 1
+
+environment: test
+
+ingress:
+  hosts:
+    - host: 'vtb-api-test.k8s.travelspirit.cloud' # Default, can be overridden
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: vtb-api-test-tls
+      hosts:
+        - 'vtb-api-test.k8s.travelspirit.cloud'
+
+# Minimal resources for test environments
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+app:
+  nodeEnv: test
+  logLevel: debug
+
+# CloudNativePG configuration for test environments (lightweight)
+postgresql:
+  enabled: true
+  cluster:
+    instances: 1 # Single instance for testing
+    storage:
+      size: '5Gi' # Smaller storage for test data
+      storageClass: 'hcloud-volumes'
+    resources:
+      requests:
+        memory: '128Mi' # Minimal resources for testing
+        cpu: '50m'
+      limits:
+        memory: '256Mi'
+        cpu: '200m'
+
+  # Disable monitoring and backups for test environments
+  monitoring:
+    enabled: false
+  backup:
+    enabled: false

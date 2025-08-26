@@ -1,12 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:github.com)",
-      "WebFetch(domain:docs.github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(chmod:*)",
+      "Bash(export:*)",
+      "Bash(hcloud server list:*)",
+      "Bash(kubectl:*)",
       "Bash(mkdir:*)",
-      "Bash(chmod:*)"
+      "Bash(sed:*)",
+      "Bash(source:*)",
+      "Bash(ssh:*)",
+      "WebFetch(domain:*)",
+      "WebSearch",
+      "mcp__grafana__get_dashboard_by_uid",
+      "mcp__grafana__list_datasources",
+      "mcp__grafana__query_prometheus",
+      "mcp__grafana__search_dashboards"
     ],
-    "deny": []
-  }
+    "deny": [],
+    "additionalDirectories": ["/Users/pcmulder/projects/travelspirit"]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["grafana"]
 }

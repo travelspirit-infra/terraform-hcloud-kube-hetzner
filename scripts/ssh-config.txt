@@ -1,0 +1,36 @@
+# SSH Configuration for K3s Cluster Access
+# Add this to your ~/.ssh/config file
+
+Host k3s-control
+    HostName 195.201.28.253
+    User root
+    Port 22
+
+Host k3s-worker-1
+    HostName 10.0.0.101
+    User root
+    ProxyCommand ssh -W %h:%p k3s-control
+    
+Host k3s-worker-2
+    HostName 10.0.0.102
+    User root
+    ProxyCommand ssh -W %h:%p k3s-control
+
+# Alternative: Direct IPv6 access when available
+Host k3s-control-ipv6
+    HostName 2a01:4f8:1c1b:f096::1
+    User root
+    Port 22
+    AddressFamily inet6
+
+Host k3s-worker-1-ipv6
+    HostName 2a01:4f8:1c1c:86d8::1
+    User root
+    Port 22
+    AddressFamily inet6
+
+Host k3s-worker-2-ipv6
+    HostName 2a01:4f8:1c1a:47f9::1
+    User root
+    Port 22
+    AddressFamily inet6

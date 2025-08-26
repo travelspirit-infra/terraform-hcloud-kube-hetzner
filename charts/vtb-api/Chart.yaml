@@ -1,0 +1,15 @@
+apiVersion: v2
+name: vtb-api
+description: Visual Tour Builder API Helm Chart for Kubernetes deployments
+type: application
+version: 0.1.0
+appVersion: 'latest'
+keywords:
+  - vtb
+  - api
+  - nodejs
+  - nestjs
+maintainers:
+  - name: TravelSpirit Development Team
+    email: patrick@travelspirit.nl
+# Dependencies removed - using CloudNativePG operator instead of Bitnami subchart

@@ -1,0 +1,35 @@
+# VTB Database Migration Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vtb-migrations
+  namespace: vtb-test
+  labels:
+    app: vtb-migrations
+spec:
+  template:
+    metadata:
+      labels:
+        app: vtb-migrations
+    spec:
+      # ARM64 tolerations for Hetzner CAX instances
+      tolerations:
+      - key: architecture
+        value: arm64
+        effect: NoSchedule
+      restartPolicy: OnFailure
+      containers:
+      - name: vtb-migrations
+        image: harbor.travelspirit.cloud/library/api:latest
+        command: ["node", "run-migrations.js"]
+        envFrom:
+        - secretRef:
+            name: vtb-api-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+  backoffLimit: 3

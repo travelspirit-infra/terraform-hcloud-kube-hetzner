@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: harbor
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: harbor
+  namespace: kube-system
+spec:
+  chart: harbor
+  repo: https://helm.goharbor.io
+  targetNamespace: harbor
+  version: "1.16.0"
+  tolerations:
+  - key: architecture
+    value: arm64
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+  valuesContent: |
+    expose:
+      type: ingress
+      tls:
+        enabled: true
+        certSource: auto
+      ingress:
+        hosts:
+          core: harbor.k8s.travelspirit.cloud
+        className: traefik
+
+    externalURL: https://harbor.k8s.travelspirit.cloud
+
+    # Single instance - no HA
+    portal:
+      replicas: 1
+      tolerations:
+      - key: architecture
+        value: arm64
+        effect: NoSchedule
+    core:
+      replicas: 1
+      tolerations:
+      - key: architecture
+        value: arm64
+        effect: NoSchedule
+    jobservice:
+      replicas: 1
+      tolerations:
+      - key: architecture
+        value: arm64
+        effect: NoSchedule
+    registry:
+      replicas: 1
+      tolerations:
+      - key: architecture
+        value: arm64
+        effect: NoSchedule
+
+    # Internal database and redis with ARM64 tolerations
+    database:
+      type: internal
+      internal:
+        password: "HarborPassword123!"
+        tolerations:
+        - key: architecture
+          value: arm64
+          effect: NoSchedule
+    redis:
+      type: internal
+      internal:
+        tolerations:
+        - key: architecture
+          value: arm64
+          effect: NoSchedule
+
+    # 10GB total storage allocation
+    persistence:
+      enabled: true
+      resourcePolicy: "keep"
+      persistentVolumeClaim:
+        registry:
+          storageClass: "hcloud-volumes"
+          size: 5Gi
+        jobservice:
+          jobLog:
+            storageClass: "hcloud-volumes"
+            size: 1Gi
+        database:
+          storageClass: "hcloud-volumes"
+          size: 3Gi
+        redis:
+          storageClass: "hcloud-volumes"
+          size: 1Gi
+
+    # Admin credentials
+    harborAdminPassword: "Harbor12345!"
+
+    trivy:
+      enabled: true
+      replicas: 1
+      tolerations:
+      - key: architecture
+        value: arm64
+        effect: NoSchedule
+      persistence:
+        enabled: true
+        size: 1Gi
+        storageClass: "hcloud-volumes"
+
+    notary:
+      enabled: false

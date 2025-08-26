@@ -1,0 +1,168 @@
+# Default values for vtb-api
+# This is a YAML-formatted file.
+
+replicaCount: 2
+
+image:
+  repository: 982501405017.dkr.ecr.eu-central-1.amazonaws.com/visual-tour-builder/api-d1bfb4c
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: 'latest'
+
+imagePullSecrets: []
+nameOverride: ''
+fullnameOverride: ''
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ''
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: 'traefik'
+  annotations:
+    cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+    traefik.ingress.kubernetes.io/router.middlewares: 'default-redirect-https@kubernetescrd'
+  hosts:
+    - host: vtb-api-acceptance.k8s.travelspirit.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: vtb-api-tls
+      hosts:
+        - vtb-api-acceptance.k8s.travelspirit.cloud
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+livenessProbe:
+  httpGet:
+    path: /health/liveness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/readiness
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Environment-specific configuration
+environment: acceptance
+
+# Database configuration
+database:
+  # CloudNativePG creates services automatically: {cluster-name}-rw, {cluster-name}-ro, {cluster-name}-r
+  host: '{{ include "vtb-api.fullname" . }}-postgres-rw'
+  port: 5432
+  name: app # CloudNativePG default database name
+  # Credentials will be provided via CloudNativePG generated secrets
+  existingSecret: '{{ include "vtb-api.fullname" . }}-postgres-app'
+  userKey: username
+  passwordKey: password
+
+# Application configuration
+app:
+  port: 3000
+  logLevel: info
+  nodeEnv: acceptance
+
+# External services configuration (will be provided via secrets/configmaps)
+auth0:
+  existingSecret: vtb-api-auth0-secret
+  domainKey: domain
+  clientIdKey: clientId
+  clientSecretKey: clientSecret
+
+stripe:
+  existingSecret: vtb-api-stripe-secret
+  publicKeyKey: publicKey
+  secretKeyKey: secretKey
+
+# CloudNativePG configuration
+postgresql:
+  enabled: true
+  cluster:
+    instances: 1
+    imageName: 'ghcr.io/cloudnative-pg/postgresql:16'
+    storage:
+      size: '10Gi'
+      storageClass: 'hcloud-volumes'
+    resources:
+      requests:
+        memory: '256Mi'
+        cpu: '100m'
+      limits:
+        memory: '512Mi'
+        cpu: '500m'
+
+  # Backup configuration (optional)
+  backup:
+    enabled: false
+    retentionPolicy: '7d'
+    # s3:
+    #   destinationPath: "s3://vtb-postgres-backups"
+    #   credentialsSecret: "vtb-postgres-s3-credentials"
+
+  # Monitoring configuration (optional)
+  monitoring:
+    enabled: false
+    prometheusRule: false

@@ -1,0 +1,56 @@
+{
+  "name": "k3s-hetzner-infrastructure",
+  "version": "1.0.0",
+  "description": "Pulumi infrastructure for K3s cluster on Hetzner Cloud",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "pulumi up",
+    "preview": "pulumi preview",
+    "destroy": "pulumi destroy",
+    "refresh": "pulumi refresh",
+    "import-terraform-resources": "ts-node scripts/import-from-terraform.ts",
+    "validate": "tsc --noEmit && pulumi preview --diff",
+    "test": "jest",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "@pulumi/pulumi": "^3.100.0",
+    "@pulumi/hcloud": "^1.17.0",
+    "@pulumi/cloudflare": "^5.20.0",
+    "@pulumi/kubernetes": "^4.6.0",
+    "@pulumi/command": "^0.9.0",
+    "@pulumi/random": "^4.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0"
+  },
+  "pulumi": {
+    "name": "k3s-hetzner",
+    "runtime": "nodejs",
+    "description": "K3s cluster infrastructure on Hetzner Cloud",
+    "config": {
+      "hcloud:token": {
+        "secret": true,
+        "description": "Hetzner Cloud API token"
+      },
+      "cloudflare:apiToken": {
+        "secret": true,
+        "description": "Cloudflare API token"
+      },
+      "environment": {
+        "description": "Deployment environment (development, staging, production)"
+      },
+      "infrastructureVersion": {
+        "description": "Infrastructure version identifier"
+      }
+    }
+  }
+}

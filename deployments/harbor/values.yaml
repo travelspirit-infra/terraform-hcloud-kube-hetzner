@@ -1,0 +1,92 @@
+# Harbor Helm values for single instance deployment
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: auto
+  ingress:
+    hosts:
+      core: harbor.k8s.travelspirit.cloud
+    className: traefik
+
+externalURL: https://harbor.k8s.travelspirit.cloud
+
+# Single instance - no HA
+portal:
+  replicas: 1
+core:
+  replicas: 1
+jobservice:
+  replicas: 1
+registry:
+  replicas: 1
+
+# Internal database and redis
+database:
+  type: internal
+  internal:
+    password: "HarborPassword123!"
+redis:
+  type: internal
+
+# 10GB total storage allocation
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      storageClass: "hcloud-volumes"
+      size: 5Gi
+    jobservice:
+      jobLog:
+        storageClass: "hcloud-volumes"
+        size: 1Gi
+    database:
+      storageClass: "hcloud-volumes"
+      size: 3Gi
+    redis:
+      storageClass: "hcloud-volumes"
+      size: 1Gi
+
+# Admin credentials
+harborAdminPassword: "Harbor12345!"
+
+# x86 node selector - run Harbor on x86 node only
+portal:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+
+core:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+
+jobservice:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+
+registry:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+
+database:
+  internal:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+
+redis:
+  internal:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+
+trivy:
+  enabled: true
+  replicas: 1
+  nodeSelector:
+    kubernetes.io/arch: amd64
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: "hcloud-volumes"
+
+notary:
+  enabled: false

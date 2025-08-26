@@ -1,8 +1,9 @@
 # Hetzner Cloud Variables
 variable "hcloud_token" {
-  description = "Hetzner Cloud API Token"
+  description = "Hetzner Cloud API Token (defaults to HCLOUD_TOKEN env var)"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 # GitHub Actions Runner Controller Variables

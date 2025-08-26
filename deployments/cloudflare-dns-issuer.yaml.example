@@ -1,0 +1,62 @@
+# Cloudflare API Token Secret for cert-manager - TEMPLATE
+# Copy to cloudflare-dns-issuer.yaml and update with real token
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflare-api-token-secret
+  namespace: cert-manager
+type: Opaque
+stringData:
+  api-token: "YOUR_CLOUDFLARE_API_TOKEN_HERE"
+---
+# ClusterIssuer for DNS01 challenges using Cloudflare
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns01
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: patrick@travelspirit.nl
+    privateKeySecretRef:
+      name: letsencrypt-dns01-account-key
+    solvers:
+    - dns01:
+        cloudflare:
+          apiTokenSecretRef:
+            name: cloudflare-api-token-secret
+            key: api-token
+      selector:
+        dnsZones:
+        - "visualtourbuilder.com"
+        - "travelspirit.cloud"
+---
+# Wildcard Certificate for *.visualtourbuilder.com
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-visualtourbuilder-com
+  namespace: cert-manager
+spec:
+  secretName: wildcard-visualtourbuilder-com-tls
+  issuerRef:
+    name: letsencrypt-dns01
+    kind: ClusterIssuer
+  dnsNames:
+  - "*.visualtourbuilder.com"
+  - "visualtourbuilder.com"
+---
+# Wildcard Certificate for *.travelspirit.cloud (optional)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-travelspirit-cloud
+  namespace: cert-manager
+spec:
+  secretName: wildcard-travelspirit-cloud-tls
+  issuerRef:
+    name: letsencrypt-dns01
+    kind: ClusterIssuer
+  dnsNames:
+  - "*.travelspirit.cloud"
+  - "travelspirit.cloud"

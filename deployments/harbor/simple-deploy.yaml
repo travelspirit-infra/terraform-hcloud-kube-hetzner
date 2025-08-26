@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: harbor
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: harbor
+  namespace: kube-system
+spec:
+  chart: harbor
+  repo: https://helm.goharbor.io
+  targetNamespace: harbor
+  version: "1.16.0"
+  valuesContent: |
+    expose:
+      type: ingress
+      tls:
+        enabled: true
+        certSource: none
+        secret:
+          secretName: harbor-tls-cert
+      ingress:
+        hosts:
+          core: harbor.travelspirit.cloud
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          ingress.kubernetes.io/ssl-redirect: "false"
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+
+    externalURL: https://harbor.travelspirit.cloud
+
+    # Single instance configuration with x86 node selectors
+    portal:
+      replicas: 1
+      nodeSelector:
+        kubernetes.io/arch: amd64
+    core:
+      replicas: 1
+      nodeSelector:
+        kubernetes.io/arch: amd64
+    jobservice:
+      replicas: 1
+      nodeSelector:
+        kubernetes.io/arch: amd64
+    registry:
+      replicas: 1
+      nodeSelector:
+        kubernetes.io/arch: amd64
+
+    # Internal database and redis
+    database:
+      type: internal
+      internal:
+        password: "HarborPassword123!"
+        nodeSelector:
+          kubernetes.io/arch: amd64
+    redis:
+      type: internal
+      internal:
+        nodeSelector:
+          kubernetes.io/arch: amd64
+
+    # Storage: 10GB total
+    persistence:
+      enabled: true
+      resourcePolicy: "keep"
+      persistentVolumeClaim:
+        registry:
+          storageClass: "hcloud-volumes"
+          size: 5Gi
+        database:
+          storageClass: "hcloud-volumes"
+          size: 3Gi
+        redis:
+          storageClass: "hcloud-volumes" 
+          size: 1Gi
+        jobservice:
+          jobLog:
+            storageClass: "hcloud-volumes"
+            size: 1Gi
+
+    harborAdminPassword: "Harbor12345!"
+
+    # Keycloak OIDC Authentication Configuration
+    # Based on existing Grafana OAuth setup pattern
+    authMode: oidc_auth
+    
+    oidc:
+      name: "TravelSpirit Keycloak"
+      endpoint: "https://auth.travelspirit.app/auth/realms/travelspirit"
+      clientId: "harbor-oauth"
+      clientSecret: "REPLACE_WITH_KEYCLOAK_CLIENT_SECRET"
+      groupsClaim: "groups"
+      adminGroup: "harbor-admins"
+      scope: "openid,profile,email,groups"
+      verifyCert: true
+      autoOnboard: true
+      usernameClaim: "preferred_username"
+
+    trivy:
+      enabled: true
+      replicas: 1
+      nodeSelector:
+        kubernetes.io/arch: amd64
+
+    notary:
+      enabled: false

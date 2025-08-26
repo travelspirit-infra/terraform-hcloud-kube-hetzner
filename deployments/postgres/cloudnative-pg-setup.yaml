@@ -1,0 +1,177 @@
+# CloudNativePG Operator Installation and PostgreSQL Cluster Setup
+# This manifest installs the CloudNativePG operator and creates a PostgreSQL cluster
+
+# First, install the CloudNativePG operator
+# We'll apply this via kubectl command separately since it's from a URL
+
+---
+# PostgreSQL Cluster Configuration
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+---
+# Secret for PostgreSQL superuser
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-superuser-secret
+  namespace: postgres
+type: Opaque
+stringData:
+  username: postgres
+  password: "SuperSecureP@ssw0rd123!"  # Change this in production!
+---
+# Secret for application user
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-app-user
+  namespace: postgres
+type: Opaque
+stringData:
+  username: appuser
+  password: "AppUserP@ssw0rd456!"  # Change this in production!
+---
+# PostgreSQL Cluster with 2 instances
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: postgres
+spec:
+  instances: 2  # 2 instances for HA (1 primary, 1 standby)
+  
+  # PostgreSQL version
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.3
+  
+  # Primary instance configuration
+  primaryUpdateStrategy: unsupervised
+  
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      maintenance_work_mem: "64MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      work_mem: "4MB"
+      max_wal_size: "1GB"
+      min_wal_size: "80MB"
+      
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: appuser
+      secret:
+        name: postgres-app-user
+      dataChecksums: true
+      encoding: UTF8
+      localeCollate: en_US.UTF-8
+      localeCType: en_US.UTF-8
+      
+  # Superuser secret reference
+  superuserSecret:
+    name: postgres-superuser-secret
+    
+  # Storage configuration
+  storage:
+    size: 10Gi
+    storageClass: hcloud-volumes  # Using Hetzner Cloud volumes
+    
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+      
+  # Monitoring - disabled for now
+  # monitoring:
+  #   enabled: true  # Uncomment if you have Prometheus installed
+    
+  # Backup configuration (optional, configure S3 or Azure storage)
+  # backup:
+  #   retentionPolicy: "30d"
+  #   barmanObjectStore:
+  #     destinationPath: "s3://backup-bucket/postgres"
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: backup-credentials
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: backup-credentials
+  #         key: SECRET_ACCESS_KEY
+---
+# Service for read-write connections (primary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-rw
+  namespace: postgres
+spec:
+  type: ClusterIP
+  selector:
+    cnpg.io/cluster: postgres-cluster
+    role: primary
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+---
+# Service for read-only connections (standby)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-ro
+  namespace: postgres
+spec:
+  type: ClusterIP
+  selector:
+    cnpg.io/cluster: postgres-cluster
+    role: replica
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+---
+# Service for read connections (any instance)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-r
+  namespace: postgres
+spec:
+  type: ClusterIP
+  selector:
+    cnpg.io/cluster: postgres-cluster
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+---
+# ConfigMap with connection information
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-connection-info
+  namespace: postgres
+data:
+  # Connection strings for applications
+  primary_host: "postgres-rw.postgres.svc.cluster.local"
+  readonly_host: "postgres-ro.postgres.svc.cluster.local"
+  any_host: "postgres-r.postgres.svc.cluster.local"
+  port: "5432"
+  database: "appdb"
+  # Example connection string
+  connection_string: "postgresql://appuser:AppUserP@ssw0rd456!@postgres-rw.postgres.svc.cluster.local:5432/appdb?sslmode=require"

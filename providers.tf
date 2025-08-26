@@ -15,10 +15,11 @@ terraform {
 
 # Configure the Hetzner Cloud Provider
 provider "hcloud" {
-  token = var.hcloud_token
+  # If var.hcloud_token is empty, provider will use HCLOUD_TOKEN env var automatically
+  token = var.hcloud_token != "" ? var.hcloud_token : null
 }
 
 # Configure the Cloudflare Provider
 provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+  # Will automatically use CLOUDFLARE_API_TOKEN environment variable
 }

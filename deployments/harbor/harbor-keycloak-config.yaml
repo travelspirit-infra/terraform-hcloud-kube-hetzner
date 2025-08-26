@@ -1,0 +1,29 @@
+# Harbor OIDC Configuration for Keycloak Integration
+# This shows the Harbor values needed to integrate with your Keycloak instance
+
+# Update the simple-deploy.yaml with these additional values:
+
+auth_mode: oidc_auth
+
+oidc:
+  name: Keycloak
+  endpoint: https://auth.travelspirit.app/realms/YOUR_REALM
+  client_id: harbor
+  client_secret: YOUR_CLIENT_SECRET
+  group_claim_name: groups
+  admin_group: harbor-admins
+  scope: openid,profile,email,groups
+  verify_cert: true
+  auto_onboard: true
+  username_claim: preferred_username
+
+# In Keycloak, you need to:
+# 1. Create a client named "harbor" 
+# 2. Set client protocol to "openid-connect"
+# 3. Set access type to "confidential" 
+# 4. Add redirect URIs:
+#    - https://harbor.travelspirit.cloud/c/oidc/callback
+#    - https://harbor.travelspirit.cloud/c/oidc/login
+# 5. Create groups: harbor-admins, harbor-users
+# 6. Add group mappings to user tokens
+# 7. Get the client secret from Keycloak

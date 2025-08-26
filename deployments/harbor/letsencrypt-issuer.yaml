@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # ACME server URL for Let's Encrypt's prod environment
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email address for ACME registration
+    email: patrick@travelspirit.nl
+    # Secret to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    # HTTP01 challenge for domain validation
+    solvers:
+    - http01:
+        ingress:
+          class: traefik

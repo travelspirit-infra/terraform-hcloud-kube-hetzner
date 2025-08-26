@@ -1,71 +1,83 @@
-# Cloudflare DNS and SSL Configuration
-# This file manages DNS records and SSL settings for the K3s cluster
+# Cloudflare DNS Configuration
+# Manages DNS records for k8s cluster endpoints
 
-# Variables
+# Cloudflare Zone Configuration
+locals {
+  # Both domains appear to be in the same Cloudflare zone based on current setup
+  cloudflare_zones = {
+    travelspirit_cloud = {
+      zone_id    = "813e1cee01722c062f8371ac8fa462d3"
+      account_id = "5dee9a2cfa0d73e9c0e1a4a78c44f2fd"
+      domain     = "travelspirit.cloud"
+    }
+    # visualtourbuilder.com has its own separate zone
+    visualtourbuilder_com = {
+      zone_id    = "ba732f360e9522aa3348eafef1e5feb2"  # Correct zone for visualtourbuilder.com
+      account_id = "5dee9a2cfa0d73e9c0e1a4a78c44f2fd"
+      domain     = "visualtourbuilder.com"
+    }
+  }
+}
+
+# Cloudflare Provider configuration in providers.tf
+
+# Variables (optional - provider uses env var directly)
 variable "cloudflare_api_token" {
-  description = "Cloudflare API token or Global API Key"
+  description = "Cloudflare API token (uses CLOUDFLARE_API_TOKEN env var if not set)"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
-variable "cloudflare_zone_id" {
-  description = "Cloudflare Zone ID for travelspirit.cloud"
-  type        = string
-  default     = "813e1cee01722c062f8371ac8fa462d3"
-}
-
-# Data source to get the load balancer created by the module
-data "hcloud_load_balancers" "cluster" {
-  with_selector = "cluster=${module.kube-hetzner.cluster_name}"
-}
-
-# DNS Records
-resource "cloudflare_record" "k8s" {
-  zone_id         = var.cloudflare_zone_id
+# DNS Records for travelspirit.cloud
+resource "cloudflare_record" "k8s_travelspirit" {
+  zone_id         = local.cloudflare_zones.travelspirit_cloud.zone_id
   name            = "k8s"
-  content         = data.hcloud_load_balancers.cluster.load_balancers[0].ipv4
+  content         = "167.235.110.121" # Current ingress LB IP from your infrastructure
   type            = "A"
   ttl             = 1
   proxied         = true # Enable Cloudflare proxy for SSL
-  allow_overwrite = true # Allow updating existing record
+  allow_overwrite = true
+  comment         = "K8s ingress load balancer"
 }
 
-resource "cloudflare_record" "k8s_ipv6" {
-  zone_id         = var.cloudflare_zone_id
+resource "cloudflare_record" "k8s_ipv6_travelspirit" {
+  zone_id         = local.cloudflare_zones.travelspirit_cloud.zone_id
   name            = "k8s"
-  content         = data.hcloud_load_balancers.cluster.load_balancers[0].ipv6
+  content         = "2a01:4f8:1c1f:7a40::1" # Current ingress LB IPv6 from your infrastructure
   type            = "AAAA"
   ttl             = 1
-  proxied         = true # Enable Cloudflare proxy for SSL
+  proxied         = true
   allow_overwrite = true
+  comment         = "K8s ingress load balancer IPv6"
 }
 
 # Wildcard for all services under k8s subdomain
-resource "cloudflare_record" "k8s_wildcard" {
-  zone_id         = var.cloudflare_zone_id
+resource "cloudflare_record" "k8s_wildcard_travelspirit" {
+  zone_id         = local.cloudflare_zones.travelspirit_cloud.zone_id
   name            = "*.k8s"
-  content         = data.hcloud_load_balancers.cluster.load_balancers[0].ipv4
+  content         = "167.235.110.121"
   type            = "A"
   ttl             = 1
   proxied         = true
   allow_overwrite = true
+  comment         = "Wildcard for k8s services"
 }
 
-# Note: Zone settings and page rules require additional permissions
-# For now, we'll just manage DNS records. SSL is automatic with Cloudflare proxy.
+# VTB test API subdomain (preserving existing api.visualtourbuilder.com → AWS ECS)
+resource "cloudflare_record" "tst_api_vtb" {
+  zone_id         = local.cloudflare_zones.visualtourbuilder_com.zone_id
+  name            = "tst.api"
+  content         = "167.235.110.121"
+  type            = "A"
+  ttl             = 1
+  proxied         = false  # Direct connection to backend
+  allow_overwrite = true
+  comment         = "VTB test API environment"
+}
 
-# Output the DNS records
+# Output just the expected domain
 output "k8s_domain" {
-  value = "https://k8s.travelspirit.cloud"
-}
-
-output "k8s_dns_records" {
-  value = {
-    domain     = cloudflare_record.k8s.hostname
-    ipv4       = cloudflare_record.k8s.content
-    ipv6       = cloudflare_record.k8s_ipv6.content
-    proxied    = cloudflare_record.k8s.proxied
-    ssl_mode   = "flexible"
-  }
-  depends_on = [cloudflare_record.k8s, cloudflare_record.k8s_ipv6]
+  value       = "https://k8s.travelspirit.cloud"
+  description = "K8s cluster domain (DNS managed externally)"
 }
