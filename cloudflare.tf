@@ -76,6 +76,18 @@ resource "cloudflare_record" "tst_api_vtb" {
   comment         = "VTB test API environment"
 }
 
+# DNS record for Prometheus metrics endpoint
+resource "cloudflare_record" "prometheus_travelspirit" {
+  zone_id         = local.cloudflare_zones.travelspirit_cloud.zone_id
+  name            = "prometheus"
+  content         = "167.235.110.121"
+  type            = "A"
+  ttl             = 1
+  proxied         = false  # Direct access for metrics scraping
+  allow_overwrite = true
+  comment         = "Prometheus metrics endpoint"
+}
+
 # Output just the expected domain
 output "k8s_domain" {
   value       = "https://k8s.travelspirit.cloud"

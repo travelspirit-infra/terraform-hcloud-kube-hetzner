@@ -1,0 +1,46 @@
+---
+# ServiceAccount for Barry - co-owner access
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: barry-admin
+  namespace: default
+  labels:
+    purpose: co-owner-access
+    user: barry
+    managed-by: terraform
+
+---
+# ClusterRoleBinding giving Barry full cluster-admin privileges
+# Appropriate for co-owner status
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: barry-cluster-admin
+  labels:
+    purpose: co-owner-access
+    user: barry
+    managed-by: terraform
+subjects:
+- kind: ServiceAccount
+  name: barry-admin
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Long-lived token secret for Barry's kubeconfig (Kubernetes 1.24+)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: barry-admin-token
+  namespace: default
+  labels:
+    purpose: co-owner-access
+    user: barry
+    managed-by: terraform
+  annotations:
+    kubernetes.io/service-account.name: barry-admin
+type: kubernetes.io/service-account-token

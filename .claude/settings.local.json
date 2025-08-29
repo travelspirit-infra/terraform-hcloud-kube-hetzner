@@ -14,11 +14,24 @@
       "mcp__grafana__get_dashboard_by_uid",
       "mcp__grafana__list_datasources",
       "mcp__grafana__query_prometheus",
-      "mcp__grafana__search_dashboards"
+      "mcp__grafana__search_dashboards",
+      "Bash(terraform output:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(terraform plan:*)",
+      "Bash(nc:*)",
+      "Bash(hcloud firewall describe:*)",
+      "Bash(find:*)",
+      "Bash(psql:*)",
+      "Bash(PGPASSWORD:*)"
     ],
     "deny": [],
-    "additionalDirectories": ["/Users/pcmulder/projects/travelspirit"]
+    "additionalDirectories": [
+      "/Users/pcmulder/projects/travelspirit"
+    ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["grafana"]
+  "enabledMcpjsonServers": [
+    "grafana"
+  ],
+  "outputStyle": "Explanatory"
 }

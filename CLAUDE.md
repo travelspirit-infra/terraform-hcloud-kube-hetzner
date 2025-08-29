@@ -1,6 +1,9 @@
 # K3s Hetzner Cluster - Key Information
 
-Read @docs/llms.md
+@docs/llms.md
+
+# Individual Preferences
+@~/.claude/terraform-hcloud-kube-hetzner.md
 
 ## Cluster Overview
 - **Location**: Nuremberg (nbg1)
