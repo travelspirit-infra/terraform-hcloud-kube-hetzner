@@ -1,0 +1,341 @@
+# ArgoCD Helm Values for Production
+# Based on official ArgoCD Helm chart: https://github.com/argoproj/argo-helm
+
+global:
+  # Image configuration
+  image:
+    repository: quay.io/argoproj/argocd
+    tag: v2.12.4
+    imagePullPolicy: IfNotPresent
+
+  # Domain configuration for TravelSpirit infrastructure
+  domain: argocd.k8s.travelspirit.cloud
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    fsGroup: 999
+
+  # Network policy
+  networkPolicy:
+    create: false
+    defaultDenyIngress: false
+
+## ArgoCD Controller Configuration
+controller:
+  name: application-controller
+
+  # High availability for controller
+  replicas: 1
+
+  # ARM64 node scheduling
+  nodeSelector:
+    architecture: arm64
+  tolerations: []
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: architecture
+                operator: In
+                values:
+                  - arm64
+
+  # Enable metrics for monitoring
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8082"
+    serviceMonitor:
+      enabled: false # Enable when Prometheus operator is available
+
+  # Resource limits for controller (optimized for ARM64)
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+## ArgoCD Server Configuration  
+server:
+  name: server
+  
+  # High availability
+  replicas: 1
+  
+  # ARM64 node scheduling
+  nodeSelector:
+    architecture: arm64
+  tolerations: []
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: architecture
+                operator: In
+                values:
+                  - arm64
+  
+  # Enable metrics
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8083"
+
+  # Server configuration
+  config:
+    # Enable anonymous access (disable for production)
+    users.anonymous.enabled: false
+    
+    # Configure OIDC (for future GitLab/GitHub integration)
+    oidc.config: |
+      name: GitLab
+      issuer: https://gitlab.com
+      clientId: $oidc.gitlab.clientId
+      clientSecret: $oidc.gitlab.clientSecret
+      requestedScopes: ["openid", "profile", "email", "groups"]
+      requestedIDTokenClaims: {"groups": {"essential": true}}
+
+    # Repository server configuration
+    repositories: |
+      - type: git
+        url: https://github.com/travelspirit-infra/travelspirit
+      - type: helm
+        name: stable
+        url: https://charts.helm.sh/stable
+      - type: helm
+        name: argo
+        url: https://argoproj.github.io/argo-helm
+      - type: helm
+        name: bitnami
+        url: https://charts.bitnami.com/bitnami
+
+    # Resource customizations for better health checks
+    resource.customizations: |
+      networking.k8s.io/Ingress:
+        health.lua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+
+  # Ingress configuration for Traefik
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-dns01
+    hosts:
+      - argocd.k8s.travelspirit.cloud
+    tls:
+      - secretName: argocd-server-tls
+        hosts:
+          - argocd.k8s.travelspirit.cloud
+    
+    # Enable gRPC for CLI access
+    grpc:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: traefik
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    
+  # Resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+## Repository Server Configuration
+repoServer:
+  name: repo-server
+  
+  # High availability
+  replicas: 1
+  
+  # ARM64 node scheduling
+  nodeSelector:
+    architecture: arm64
+  tolerations: []
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: architecture
+                operator: In
+                values:
+                  - arm64
+  
+  # Enable metrics
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8084"
+
+  # Resource limits (optimized for ARM64)
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+  # Init containers for Helm plugins and tools
+  initContainers:
+    - name: install-tools
+      image: alpine/helm:3.14.0
+      command:
+        - sh
+        - -c
+      args:
+        - |
+          # Install common Helm plugins
+          helm plugin install https://github.com/databus23/helm-diff --version=v3.8.1
+          # Copy helm binary and plugins to shared volume
+          cp /usr/bin/helm /shared-tools/
+          cp -r /root/.local/share/helm/plugins /shared-tools/
+      volumeMounts:
+        - name: tools
+          mountPath: /shared-tools
+
+  # Additional volumes for tools
+  volumes:
+    - name: tools
+      emptyDir: {}
+
+  volumeMounts:
+    - name: tools
+      mountPath: /usr/local/bin/helm
+      subPath: helm
+    - name: tools
+      mountPath: /home/argocd/.local/share/helm/plugins
+      subPath: plugins
+
+## ApplicationSet Controller Configuration
+applicationSet:
+  enabled: true
+  name: applicationset-controller
+  
+  replicas: 1
+  
+  # ARM64 node scheduling
+  nodeSelector:
+    architecture: arm64
+  tolerations: []
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: architecture
+                operator: In
+                values:
+                  - arm64
+  
+  # Enable metrics
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8085"
+
+## Notifications Controller Configuration
+notifications:
+  enabled: true
+  name: notifications-controller
+  
+  # ARM64 node scheduling
+  nodeSelector:
+    architecture: arm64
+  tolerations: []
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: architecture
+                operator: In
+                values:
+                  - arm64
+  
+  # Enable metrics  
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+
+## Redis Configuration (for ArgoCD state management)
+redis:
+  enabled: true
+  
+  # ARM64 node scheduling for Redis
+  master:
+    nodeSelector:
+      architecture: arm64
+    tolerations: []
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: architecture
+                  operator: In
+                  values:
+                    - arm64
+    
+    # Persistence
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: hcloud-volumes
+      
+    # Resource limits (optimized for ARM64)
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  
+  # Security
+  auth:
+    enabled: false # Enable in production with proper password
+
+## Dex OIDC Configuration (disabled for now)
+dex:
+  enabled: false
+
+## External configuration
+configs:
+  # Repository server additional configuration
+  params:
+    server.insecure: false
+    server.grpc.web: true

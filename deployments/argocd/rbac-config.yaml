@@ -1,0 +1,252 @@
+# ArgoCD RBAC Configuration
+# This file defines role-based access control for ArgoCD users and groups
+# Apply with: kubectl apply -n argocd -f rbac-config.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # RBAC policy configuration
+  policy.default: role:readonly
+  
+  # Define custom roles
+  policy.csv: |
+    # Admin role - full access
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:admin, projects, *, *, allow
+    p, role:admin, accounts, *, *, allow
+    p, role:admin, certificates, *, *, allow
+    p, role:admin, gpgkeys, *, *, allow
+    p, role:admin, logs, *, */*, allow
+    p, role:admin, exec, *, */*, allow
+    
+    # Developer role - can manage applications but not cluster config
+    p, role:developer, applications, *, */*, allow
+    p, role:developer, applications, action/*, */*, allow
+    p, role:developer, logs, *, */*, allow
+    p, role:developer, repositories, get, *, allow
+    p, role:developer, projects, get, *, allow
+    p, role:developer, clusters, get, *, allow
+    
+    # DevOps role - can manage infrastructure applications
+    p, role:devops, applications, *, travelspirit/*, allow
+    p, role:devops, applications, *, infrastructure/*, allow
+    p, role:devops, applications, action/*, */*, allow
+    p, role:devops, repositories, *, *, allow
+    p, role:devops, projects, *, *, allow
+    p, role:devops, clusters, get, *, allow
+    p, role:devops, logs, *, */*, allow
+    p, role:devops, exec, *, */*, allow
+    
+    # Readonly role - can only view
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, repositories, get, *, allow
+    p, role:readonly, projects, get, *, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, logs, get, */*, allow
+    
+    # CI/CD service account role
+    p, role:ci-cd, applications, *, travelspirit/*, allow
+    p, role:ci-cd, applications, sync, */*, allow
+    p, role:ci-cd, repositories, get, *, allow
+    
+    # User assignments (will be updated when OIDC is configured)
+    g, patrick@travelspirit.nl, role:admin
+    g, barry@travelspirit.nl, role:developer
+    g, argocd-ci-cd, role:ci-cd
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Server configuration
+  server.insecure: "false"
+  server.grpc.web: "true"
+  server.enable.proxy.extension: "true"
+  
+  # Repository server configuration  
+  reposerver.parallelism.limit: "10"
+  
+  # Controller configuration
+  controller.self.heal.timeout.seconds: "5"
+  controller.operation.processors: "10"
+  controller.status.processors: "20"
+  controller.log.level: "info"
+  
+  # Application controller settings
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  
+  # Security settings
+  server.enable.grpc.time.logging: "true"
+  
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-repo-travelspirit-private
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+stringData:
+  type: git
+  url: https://github.com/travelspirit-infra/travelspirit
+  # Add GitHub credentials when ready
+  # username: <github-username>
+  # password: <github-personal-access-token>
+
+---
+# ArgoCD Projects Configuration
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: travelspirit
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: travelspirit-project
+    app.kubernetes.io/part-of: argocd
+spec:
+  description: TravelSpirit applications project
+  
+  # Source repositories
+  sourceRepos:
+    - 'https://github.com/travelspirit-infra/travelspirit'
+    - 'https://github.com/travelspirit-infra/*'
+    - 'https://charts.bitnami.com/bitnami'
+    - 'https://charts.helm.sh/stable'
+    - 'https://argoproj.github.io/argo-helm'
+  
+  # Allowed destinations
+  destinations:
+    - namespace: 'travelspirit-*'
+      server: 'https://kubernetes.default.svc'
+    - namespace: 'default'
+      server: 'https://kubernetes.default.svc'
+    - namespace: 'monitoring'
+      server: 'https://kubernetes.default.svc'
+    - namespace: 'ingress-system'
+      server: 'https://kubernetes.default.svc'
+  
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRole
+    - group: 'rbac.authorization.k8s.io'  
+      kind: ClusterRoleBinding
+    - group: 'apiextensions.k8s.io'
+      kind: CustomResourceDefinition
+    - group: 'networking.k8s.io'
+      kind: IngressClass
+  
+  # Namespace resource whitelist
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: 'apps'
+      kind: Deployment
+    - group: 'apps'
+      kind: StatefulSet
+    - group: 'apps'
+      kind: DaemonSet
+    - group: 'batch'
+      kind: Job
+    - group: 'batch'
+      kind: CronJob
+    - group: 'networking.k8s.io'
+      kind: Ingress
+    - group: 'networking.k8s.io'
+      kind: NetworkPolicy
+    - group: 'policy'
+      kind: PodDisruptionBudget
+    - group: 'autoscaling'
+      kind: HorizontalPodAutoscaler
+    - group: 'cert-manager.io'
+      kind: Certificate
+    - group: 'cert-manager.io'
+      kind: Issuer
+  
+  # Sync windows (prevent syncing during business hours if needed)
+  # syncWindows:
+  #   - kind: allow
+  #     schedule: '* * * * *'
+  #     duration: 24h
+  #     applications:
+  #       - '*'
+  
+  roles:
+    # Project-specific roles
+    - name: travelspirit-developer
+      description: Developer access to TravelSpirit applications
+      policies:
+        - p, proj:travelspirit:travelspirit-developer, applications, *, travelspirit/*, allow
+        - p, proj:travelspirit:travelspirit-developer, applications, sync, travelspirit/*, allow
+        - p, proj:travelspirit:travelspirit-developer, applications, action/*, travelspirit/*, allow
+      groups:
+        - travelspirit:developers
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: infrastructure
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: infrastructure-project
+    app.kubernetes.io/part-of: argocd
+spec:
+  description: Infrastructure and platform applications
+  
+  # Source repositories for infrastructure
+  sourceRepos:
+    - 'https://github.com/travelspirit-infra/*'
+    - 'https://charts.bitnami.com/bitnami'
+    - 'https://helm.traefik.io/traefik'
+    - 'https://kubernetes.github.io/ingress-nginx'
+    - 'https://prometheus-community.github.io/helm-charts'
+    - 'https://grafana.github.io/helm-charts'
+    - 'https://charts.jetstack.io'
+  
+  # Infrastructure destinations
+  destinations:
+    - namespace: '*'
+      server: 'https://kubernetes.default.svc'
+  
+  # More permissive for infrastructure
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+      
+  roles:
+    - name: infrastructure-admin
+      description: Full access to infrastructure applications
+      policies:
+        - p, proj:infrastructure:infrastructure-admin, applications, *, infrastructure/*, allow
+        - p, proj:infrastructure:infrastructure-admin, applications, *, monitoring/*, allow
+        - p, proj:infrastructure:infrastructure-admin, applications, *, cert-manager/*, allow
+      groups:
+        - travelspirit:devops

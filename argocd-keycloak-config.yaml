@@ -1,0 +1,55 @@
+# ArgoCD Configuration for Keycloak OIDC Integration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Basic ArgoCD configuration
+  admin.enabled: "true"
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  exec.enabled: "false"
+  server.rbac.log.enforce.enable: "false"
+  statusbadge.enabled: "false"
+  timeout.hard.reconciliation: 0s
+  timeout.reconciliation: 180s
+  url: https://argocd.k8s.travelspirit.cloud
+
+  # OIDC Configuration for Keycloak
+  oidc.config: |
+    name: Keycloak
+    issuer: https://auth.travelspirit.cloud/realms/travelspirit
+    clientId: argocd
+    clientSecret: $oidc.keycloak.clientSecret
+    requestedScopes: ["openid", "profile", "email", "groups"]
+    requestedIDTokenClaims: {"groups": {"essential": true}}
+
+  # Policy configuration for default role
+  policy.default: role:readonly
+  
+  # Additional policy settings
+  policy.csv: |
+    # Default users get readonly access
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, certificates, get, *, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, repositories, get, *, allow
+    
+    # Admin group gets full access
+    g, /travelspirit-admins, role:admin
+    
+    # Developer group gets app management access
+    g, /travelspirit-developers, role:developer
+    p, role:developer, applications, *, */*, allow
+    p, role:developer, repositories, get, *, allow
+    p, role:developer, clusters, get, *, allow
+    
+    # DevOps group gets infrastructure access
+    g, /travelspirit-devops, role:devops
+    p, role:devops, applications, *, */*, allow
+    p, role:devops, repositories, *, *, allow
+    p, role:devops, clusters, *, *, allow
+    p, role:devops, certificates, *, *, allow

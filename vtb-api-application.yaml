@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vtb-api-demo
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: vtb-api
+    environment: demo
+spec:
+  project: default
+  source:
+    # Using your local repository path - you'll need to push this to a public/accessible repo
+    repoURL: https://github.com/travelspirit-infra/travelspirit.git
+    targetRevision: HEAD
+    path: apps/visual-tour-builder-api/charts
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-tst.yaml
+      parameters:
+        - name: ingress.hosts[0].host
+          value: "vtb-demo.k8s.travelspirit.cloud"
+        - name: ingress.tls[0].hosts[0]
+          value: "vtb-demo.k8s.travelspirit.cloud"
+        - name: ingress.tls[0].secretName
+          value: "vtb-demo-tls"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vtb-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

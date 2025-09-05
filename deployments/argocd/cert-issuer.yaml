@@ -1,0 +1,56 @@
+# Certificate Issuer for ArgoCD using Let's Encrypt
+# This configures cert-manager to obtain SSL certificates via DNS01 challenge using Cloudflare
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns01
+  labels:
+    app.kubernetes.io/name: letsencrypt-dns01
+    app.kubernetes.io/part-of: cert-manager
+spec:
+  acme:
+    # Use Let's Encrypt production server
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: patrick@travelspirit.nl
+    
+    # Store account key in secret
+    privateKeySecretRef:
+      name: letsencrypt-dns01-account-key
+    
+    # DNS01 challenge via Cloudflare
+    solvers:
+      - dns01:
+          cloudflare:
+            email: patrick@travelspirit.nl
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        selector:
+          dnsNames:
+            - 'k8s.travelspirit.cloud'
+            - '*.k8s.travelspirit.cloud'
+            - 'travelspirit.cloud' 
+            - '*.travelspirit.cloud'
+
+---
+# Cloudflare API Token Secret (already created via kubectl)
+# The secret is created separately to avoid storing token in Git
+
+---
+# Certificate for ArgoCD subdomain
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-tls
+  namespace: argocd
+spec:
+  secretName: argocd-server-tls
+  issuerRef:
+    name: letsencrypt-dns01
+    kind: ClusterIssuer
+  dnsNames:
+    - argocd.k8s.travelspirit.cloud
+  usages:
+    - digital signature
+    - key encipherment

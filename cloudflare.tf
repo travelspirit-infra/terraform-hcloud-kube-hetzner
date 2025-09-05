@@ -88,6 +88,18 @@ resource "cloudflare_record" "prometheus_travelspirit" {
   comment         = "Prometheus metrics endpoint"
 }
 
+# DNS record for ArgoCD endpoint
+resource "cloudflare_record" "argocd_travelspirit" {
+  zone_id         = local.cloudflare_zones.travelspirit_cloud.zone_id
+  name            = "argocd"
+  content         = "167.235.110.121"
+  type            = "A"
+  ttl             = 1
+  proxied         = true   # Enable Cloudflare proxy for SSL/security
+  allow_overwrite = true
+  comment         = "ArgoCD GitOps deployment platform"
+}
+
 # Output just the expected domain
 output "k8s_domain" {
   value       = "https://k8s.travelspirit.cloud"

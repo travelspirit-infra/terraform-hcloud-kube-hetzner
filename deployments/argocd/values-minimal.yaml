@@ -1,0 +1,54 @@
+# Minimal ArgoCD Configuration for ARM64 deployment
+global:
+  domain: argocd.k8s.travelspirit.cloud
+
+# Controller configuration
+controller:
+  nodeSelector:
+    architecture: arm64
+
+# Server configuration  
+server:
+  nodeSelector:
+    architecture: arm64
+  
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    hosts:
+      - argocd.k8s.travelspirit.cloud
+    tls:
+      - secretName: argocd-server-tls
+        hosts:
+          - argocd.k8s.travelspirit.cloud
+
+# Repository Server
+repoServer:
+  nodeSelector:
+    architecture: arm64
+
+# ApplicationSet controller
+applicationSet:
+  enabled: true
+  nodeSelector:
+    architecture: arm64
+
+# Notifications controller
+notifications:
+  enabled: true
+  nodeSelector:
+    architecture: arm64
+
+# Redis configuration
+redis:
+  enabled: true
+  master:
+    nodeSelector:
+      architecture: arm64
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: hcloud-volumes

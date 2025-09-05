@@ -1,0 +1,66 @@
+# ArgoCD RBAC Configuration for TravelSpirit Teams
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Default policy for authenticated users (readonly access)
+  policy.default: role:readonly
+
+  # Define roles and permissions
+  policy.csv: |
+    # Built-in Admin role (full access to everything)
+    p, role:admin, *, *, *, allow
+
+    # Readonly role - can view but not modify
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, applications, action, */*, allow
+    p, role:readonly, certificates, get, *, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, repositories, get, *, allow
+    p, role:readonly, projects, get, *, allow
+    p, role:readonly, logs, get, */*, allow
+    p, role:readonly, exec, create, */*, deny
+
+    # Developer role - can manage applications in specific projects
+    p, role:developer, applications, *, travelspirit/*, allow
+    p, role:developer, applications, *, vtb/*, allow
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, repositories, get, *, allow
+    p, role:developer, clusters, get, *, allow
+    p, role:developer, projects, get, *, allow
+    p, role:developer, logs, get, */*, allow
+    p, role:developer, exec, create, */*, deny
+
+    # DevOps role - full application and infrastructure management
+    p, role:devops, applications, *, */*, allow
+    p, role:devops, repositories, *, *, allow
+    p, role:devops, clusters, *, *, allow
+    p, role:devops, projects, *, *, allow
+    p, role:devops, certificates, *, *, allow
+    p, role:devops, logs, get, */*, allow
+    p, role:devops, exec, create, */*, allow
+
+    # Project Admin role - admin access to specific projects
+    p, role:project-admin, applications, *, travelspirit/*, allow
+    p, role:project-admin, repositories, get, *, allow
+    p, role:project-admin, clusters, get, *, allow
+    p, role:project-admin, projects, get, travelspirit, allow
+    p, role:project-admin, logs, get, travelspirit/*, allow
+
+    # Map Keycloak groups to ArgoCD roles
+    # Adjust these group names to match your Keycloak group structure
+    g, /travelspirit-admins, role:admin
+    g, /travelspirit-devops, role:devops
+    g, /travelspirit-developers, role:developer
+    g, /vtb-team, role:project-admin
+    
+    # Individual user mapping (if needed)
+    g, patrick@travelspirit.nl, role:admin
+
+  # Configure scopes for OIDC claims
+  scopes: '[groups, email]'

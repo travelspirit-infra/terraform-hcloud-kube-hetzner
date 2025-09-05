@@ -37,13 +37,27 @@ Workers:
 **Preferred Method**: DNS01 challenges via Cloudflare API (no HTTP challenge complexity)
 
 #### Active Wildcard Certificates:
-- **`*.travelspirit.cloud`**: Covers harbor.travelspirit.cloud and future subdomains
+- **`*.travelspirit.cloud`**: Covers harbor.travelspirit.cloud, argocd.travelspirit.cloud and future subdomains
+  - **Namespaces**: cert-manager (primary), argocd (dedicated copy)
+  - **Secret Names**: `wildcard-travelspirit-cloud-tls`, `travelspirit-wildcard-tls`
+  - **Valid Until**: 2025-12-01 (auto-renewed by cert-manager)
 - **`*.visualtourbuilder.com`**: Ready for future VTB subdomains  
+  - **Namespace**: cert-manager
+  - **Secret Name**: `wildcard-visualtourbuilder-com-tls`
 - **`*.api.visualtourbuilder.com`**: Covers tst.api.visualtourbuilder.com and future API environments
+  - **Used by**: VTB test API environment
+- **`*.k8s.travelspirit.cloud`**: Legacy k8s subdomain certificates
+  - **Example**: nginx-demo.k8s.travelspirit.cloud
+  - **Note**: Being migrated to main travelspirit.cloud wildcard
 
 #### Certificate Issuer:
 - **`letsencrypt-dns01`**: DNS01 challenges via Cloudflare API (ONLY issuer)
 - **Benefits**: Works with Cloudflare proxy, automatic subdomain coverage, no temporary ingress needed
+
+#### Certificate Management Strategy:
+- **Per-namespace Certificate resources**: Each namespace creates its own Certificate resource pointing to the same wildcard
+- **Shared ClusterIssuer**: All certificates use the same `letsencrypt-dns01` ClusterIssuer
+- **No certificate copying**: Certificates are provisioned directly in each namespace that needs them
 
 ### Networking
 - **Private Network**: k3s-cluster (10.0.0.0/8)
@@ -193,3 +207,45 @@ source hcloud-env.sh  # Load HCLOUD_TOKEN and CLOUDFLARE_API_TOKEN
 - **Default StorageClass**: `hcloud-volumes` (Hetzner CSI)
 - **Dynamic provisioning**: Available via Hetzner Cloud Volumes
 - **Access mode**: ReadWriteOnce (block storage)
+
+## GitOps & Application Management
+
+### ArgoCD Deployment
+- **URL**: https://argocd.travelspirit.cloud
+- **Admin Credentials**: admin / yJaGQOyloNe49qno
+- **Status**: ✅ Deployed and operational
+- **Keycloak Integration**: Configured for SSO with auth.travelspirit.app
+
+### Management Level Strategy
+**Recommended approach for managing cluster components:**
+
+#### **Level 1: Infrastructure (Terraform)**
+- K3s cluster nodes and networking ✅ Current
+- Hetzner Load Balancers and DNS ✅ Current  
+- Core k3s components (CoreDNS, kube-proxy) ✅ Current
+
+#### **Level 2: Platform Services (Terraform - Current State)**
+- ArgoCD itself ✅ Keep with Terraform (avoids circular dependencies)
+- Traefik Ingress Controller ✅ Keep with Terraform (core platform)
+- cert-manager ✅ Keep with Terraform (needed for ArgoCD)
+- Hetzner CCM/CSI ✅ Keep with Terraform (infrastructure layer)
+
+#### **Level 3: Applications (ArgoCD)**
+- VTB API ⚡ **Target**: Deploy via ArgoCD with existing Helm chart
+- TravelSpirit applications ⚡ **Target**: All future apps via GitOps
+- Monitoring stack ⚡ **Future**: Prometheus/Grafana via ArgoCD
+- Development/staging environments ⚡ **Target**: Self-service via Git
+
+### ArgoCD RBAC Groups
+**Keycloak groups for role-based access:**
+- `argocd-admins`: Full admin access to ArgoCD
+- `argocd-developers`: Application management in ArgoCD projects
+- `argocd-devops`: Full application and infrastructure management in ArgoCD
+- `argocd-vtb-team`: VTB-specific application admin access
+- `argocd-readonly`: Read-only access to ArgoCD applications
+
+### Next Actions
+1. **Immediate**: Deploy VTB API via ArgoCD using existing Helm chart
+2. **Short-term**: Set up Keycloak SSO integration
+3. **Medium-term**: Establish GitOps workflow for all applications
+4. **Future**: Consider migrating platform services to ArgoCD (Phase 2)
