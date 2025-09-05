@@ -3,7 +3,7 @@ name: postgres-cluster
 description: PostgreSQL cluster using CloudNativePG
 type: application
 version: 1.0.0
-appVersion: "16.3"
+appVersion: "16.3.0"
 keywords:
   - postgresql
   - database
