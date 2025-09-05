@@ -39,6 +39,33 @@ data:
                   regex: ([^:]+)(?::\d+)?
                   replacement: $1:9100
                   target_label: __address__
+
+            # CloudNativePG Operator monitoring
+            - job_name: 'cnpg-operator'
+              scrape_interval: 30s
+              kubernetes_sd_configs:
+                - role: endpoints
+                  namespaces:
+                    names:
+                      - cnpg-system
+              relabel_configs:
+                # Only scrape services with prometheus.io/scrape annotation
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                # Use the annotated port
+                - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+                  action: replace
+                  regex: ([^:]+)(?::\d+)?;(\d+)
+                  replacement: $1:$2
+                  target_label: __address__
+                # Add service and namespace labels
+                - source_labels: [__meta_kubernetes_service_name]
+                  action: replace
+                  target_label: service
+                - source_labels: [__meta_kubernetes_namespace]
+                  action: replace
+                  target_label: namespace
     
     processors:
       batch:

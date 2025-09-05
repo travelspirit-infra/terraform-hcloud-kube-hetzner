@@ -1,0 +1,27 @@
+# Production-specific CNPG operator values
+replicaCount: 1
+
+# Enhanced monitoring for production
+monitoring:
+  enabled: true
+  
+# Production logging level  
+config:
+  data:
+    OPERATOR_LOG_LEVEL: "warning"  # Less verbose in production
+    
+# Production resource allocation
+resources:
+  limits:
+    cpu: 500m      # Higher limits for production
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# Production security settings
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 10001

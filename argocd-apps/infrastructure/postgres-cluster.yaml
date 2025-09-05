@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres-cluster
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/part-of: infrastructure
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/travelspirit-infra/terraform-hcloud-kube-hetzner
+    targetRevision: HEAD
+    path: argocd-apps/postgres
+    helm:
+      valueFiles:
+      - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: false  # Critical: Never auto-prune database resources
+      selfHeal: false  # Manual intervention required for DB changes
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+    
+  # Ignore frequently changing database status fields
+  ignoreDifferences:
+  - group: postgresql.cnpg.io
+    kind: Cluster
+    jsonPointers:
+    - /status
+    - /metadata/generation
+    - /metadata/resourceVersion

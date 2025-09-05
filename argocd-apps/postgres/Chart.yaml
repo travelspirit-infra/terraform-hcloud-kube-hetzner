@@ -1,0 +1,14 @@
+apiVersion: v2
+name: postgres-cluster
+description: PostgreSQL cluster using CloudNativePG
+type: application
+version: 1.0.0
+appVersion: "16.3"
+keywords:
+  - postgresql
+  - database
+  - cnpg
+home: https://github.com/travelspirit-infra/terraform-hcloud-kube-hetzner
+maintainers:
+  - name: TravelSpirit DevOps Team
+    email: patrick@travelspirit.nl

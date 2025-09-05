@@ -1,0 +1,113 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudnative-pg-operator
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cloudnative-pg-operator
+    app.kubernetes.io/part-of: infrastructure
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://cloudnative-pg.github.io/charts
+    chart: cloudnative-pg
+    targetRevision: 0.22.1  # Pin to stable version
+    helm:
+      values: |
+        # CloudNativePG Operator Configuration
+        replicaCount: 1  # Single replica recommended for production
+        
+        image:
+          repository: ghcr.io/cloudnative-pg/cloudnative-pg
+          pullPolicy: IfNotPresent
+          
+        # Resource configuration for operator pod
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            
+        # Configuration for webhook
+        webhook:
+          port: 9443
+          mutating:
+            create: true
+          validating:
+            create: true
+            
+        # Monitoring configuration
+        monitoring:
+          enabled: true  # Prometheus monitoring enabled
+          podMonitorEnabled: false  # Disable PodMonitor (we use custom service discovery)
+          podMonitor:
+            enabled: false
+          
+        # Security configuration
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+            
+        # Configuration for specific environments
+        config:
+          data:
+            # Watch specific namespaces (empty = all namespaces)
+            WATCH_NAMESPACE: ""
+            # Operator configuration
+            OPERATOR_LOG_LEVEL: "info"
+            OPERATOR_WEBHOOK_CERT_DIR: "/tmp/k8s-webhook-server/serving-certs"
+            # Metrics configuration
+            OPERATOR_METRICS_BIND_ADDR: ":8080"
+            
+        # Service configuration for metrics
+        service:
+          type: ClusterIP
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/path: "/metrics"
+            prometheus.io/port: "8080"
+            
+        # Node selection for ARM64 tolerance
+        tolerations:
+        - key: architecture
+          value: arm64
+          effect: NoSchedule
+          
+        nodeSelector: {}
+        
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+    
+  syncPolicy:
+    automated:
+      prune: false  # Never auto-prune operator resources
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=true
+    
+  # Health checks specific to CNPG operator
+  ignoreDifferences:
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    jsonPointers:
+    - /spec/conversion/webhook/clientConfig/caBundle
+  - group: admissionregistration.k8s.io
+    kind: ValidatingAdmissionWebhook
+    jsonPointers:
+    - /webhooks/0/clientConfig/caBundle
+  - group: admissionregistration.k8s.io
+    kind: MutatingAdmissionWebhook
+    jsonPointers:
+    - /webhooks/0/clientConfig/caBundle

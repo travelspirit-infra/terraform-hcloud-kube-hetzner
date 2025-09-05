@@ -1,0 +1,88 @@
+# Default values for PostgreSQL cluster
+postgresql:
+  # Cluster configuration
+  cluster:
+    name: postgres-cluster
+    instances: 2  # HA setup with primary + replica
+    
+  # PostgreSQL version and image
+  imageName: "ghcr.io/cloudnative-pg/postgresql:16.3"
+  primaryUpdateStrategy: "unsupervised"
+  
+  # Database configuration
+  database:
+    name: appdb
+    owner: appuser
+    encoding: UTF8
+    localeCollate: en_US.UTF-8
+    localeCType: en_US.UTF-8
+    dataChecksums: true
+    
+  # PostgreSQL settings
+  parameters:
+    max_connections: "200"
+    shared_buffers: "256MB"
+    effective_cache_size: "1GB"
+    maintenance_work_mem: "64MB"
+    checkpoint_completion_target: "0.9"
+    wal_buffers: "16MB"
+    default_statistics_target: "100"
+    random_page_cost: "1.1"
+    work_mem: "4MB"
+    max_wal_size: "1GB"
+    min_wal_size: "80MB"
+    
+  # Storage configuration
+  storage:
+    size: "10Gi"
+    storageClass: "hcloud-volumes"  # Hetzner Cloud volumes
+    
+  # Resource configuration
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+      
+  # Monitoring (disabled until we have proper postgres_exporter setup)
+  monitoring:
+    enabled: false
+    
+  # Backup configuration (disabled for now)
+  backup:
+    enabled: false
+    
+# Secrets configuration
+secrets:
+  # Superuser credentials
+  superuser:
+    username: postgres
+    password: "SuperSecureP@ssw0rd123!"  # TODO: Move to external secrets
+    
+  # Application user credentials  
+  appUser:
+    username: appuser
+    password: "AppUserP@ssw0rd456!"  # TODO: Move to external secrets
+    
+# Service configuration
+services:
+  # Read-write service (primary)
+  readWrite:
+    enabled: true
+    type: ClusterIP
+    
+  # Read-only service (replica)
+  readOnly:
+    enabled: true
+    type: ClusterIP
+    
+  # Any instance service
+  readAny:
+    enabled: true
+    type: ClusterIP
+
+# Connection information
+connectionInfo:
+  enabled: true

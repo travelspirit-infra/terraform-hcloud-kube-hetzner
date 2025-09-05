@@ -1,0 +1,23 @@
+---
+# Service to expose CNPG operator metrics
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnpg-operator-metrics
+  namespace: cnpg-system
+  labels:
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/component: operator
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "8080"
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: cloudnative-pg

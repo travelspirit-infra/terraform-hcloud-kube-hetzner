@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infrastructure-apps
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: infrastructure-apps
+    app.kubernetes.io/part-of: app-of-apps
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/travelspirit-infra/terraform-hcloud-kube-hetzner
+    targetRevision: HEAD
+    path: argocd-apps/infrastructure
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
