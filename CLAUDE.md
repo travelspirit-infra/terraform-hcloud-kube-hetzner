@@ -245,6 +245,8 @@ source hcloud-env.sh  # Load HCLOUD_TOKEN and CLOUDFLARE_API_TOKEN
 - `argocd-readonly`: Read-only access to ArgoCD applications
 
 ### ArgoCD GitOps Workflow
+Note: `argocd` cli too is available and logged in. Use it.
+
 **CRITICAL**: Always use ArgoCD for application deployments. Never create deployment scripts.
 
 **Directory Structure**:
