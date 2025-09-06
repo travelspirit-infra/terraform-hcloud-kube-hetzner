@@ -61,21 +61,9 @@ spec:
       memory: "2Gi"
       cpu: "1000m"
 
-  # Pod affinity/anti-affinity for better distribution across nodes
+  # Simple pod anti-affinity for better distribution
   affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchLabels:
-              postgresql.cnpg.io/cluster: postgres-cluster
-          topologyKey: kubernetes.io/hostname
-
-  # Node maintenance window
-  nodeMaintenanceWindow:
-    inProgress: false
-    reusePVC: true
+    podAntiAffinityType: preferred
 
   # Enable superuser access
   enableSuperuserAccess: true

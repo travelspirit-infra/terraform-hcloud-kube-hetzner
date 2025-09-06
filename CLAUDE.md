@@ -9,7 +9,7 @@
 - **Location**: Nuremberg (nbg1)
 - **Architecture**: Mixed (ARM64 CAX + x86 CX instances)
 - **Network**: IPv4 public IPs with IPv6 support
-- **K3s Version**: v1.33.3+k3s1
+- **K3s Version**: v1.33.4+k3s1
 
 ## Current Infrastructure
 
