@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-cluster-connection-info
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/component: database
+data:
+  # Connection endpoints
+  POSTGRES_CLUSTER_HOST: "postgres-cluster-rw.postgres.svc.cluster.local"
+  POSTGRES_CLUSTER_RO_HOST: "postgres-cluster-ro.postgres.svc.cluster.local"
+  POSTGRES_CLUSTER_R_HOST: "postgres-cluster-r.postgres.svc.cluster.local"
+  POSTGRES_CLUSTER_PORT: "5432"
+  
+  # Database information
+  POSTGRES_DATABASE: "appdb"
+  POSTGRES_USER: "appuser"
+  
+  # Connection URLs (without passwords)
+  POSTGRES_URL: "postgresql://appuser@postgres-cluster-rw.postgres.svc.cluster.local:5432/appdb"
+  POSTGRES_RO_URL: "postgresql://appuser@postgres-cluster-ro.postgres.svc.cluster.local:5432/appdb"

@@ -244,6 +244,31 @@ source hcloud-env.sh  # Load HCLOUD_TOKEN and CLOUDFLARE_API_TOKEN
 - `argocd-vtb-team`: VTB-specific application admin access
 - `argocd-readonly`: Read-only access to ArgoCD applications
 
+### ArgoCD GitOps Workflow
+**CRITICAL**: Always use ArgoCD for application deployments. Never create deployment scripts.
+
+**Directory Structure**:
+- `argocd-apps/`: ArgoCD Application definitions (what ArgoCD manages)
+- `deployments/`: Plain Kubernetes YAML manifests (what gets deployed)
+
+**Deployment Process**:
+1. **Create plain YAML manifests** in `deployments/app-name/manifests/`
+2. **Create ArgoCD Application** in `argocd-apps/app-name/` pointing to the manifests
+3. **Commit and push** - ArgoCD automatically detects and deploys
+4. **Never use `kubectl apply`** directly or create deployment scripts
+
+**Example Structure**:
+```
+deployments/postgres/manifests/     # Plain Kubernetes YAML
+argocd-apps/postgres/               # ArgoCD Application pointing to manifests/
+```
+
+**Benefits**:
+- **Git as single source of truth**: What's in Git is what's running
+- **Automatic sync**: Push to Git → ArgoCD deploys automatically  
+- **Rollback capability**: Git revert → automatic rollback
+- **Audit trail**: All changes tracked in Git history
+
 ### Next Actions
 1. **Immediate**: Deploy VTB API via ArgoCD using existing Helm chart
 2. **Short-term**: Set up Keycloak SSO integration

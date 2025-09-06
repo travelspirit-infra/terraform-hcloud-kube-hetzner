@@ -1,0 +1,63 @@
+# Read-write service (primary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cluster-rw
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/component: database
+    cnpg.io/cluster: postgres-cluster
+    cnpg.io/instanceRole: primary
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgresql
+  selector:
+    cnpg.io/cluster: postgres-cluster
+    cnpg.io/instanceRole: primary
+---
+# Read-only service (replicas)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cluster-ro
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/component: database
+    cnpg.io/cluster: postgres-cluster
+    cnpg.io/instanceRole: replica
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgresql
+  selector:
+    cnpg.io/cluster: postgres-cluster
+    cnpg.io/instanceRole: replica
+---
+# Read-any service (primary + replicas)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cluster-r
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/component: database
+    cnpg.io/cluster: postgres-cluster
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgresql
+  selector:
+    cnpg.io/cluster: postgres-cluster

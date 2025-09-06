@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres-cluster
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/part-of: infrastructure
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  
+  source:
+    repoURL: https://github.com/travelspirit-infra/terraform-hcloud-kube-hetzner
+    targetRevision: HEAD
+    path: deployments/postgres/manifests
+    
+  destination:
+    server: https://kubernetes.default.svc
+    
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+    
+  # Health check ignores for PostgreSQL operator
+  ignoreDifferences:
+  - group: postgresql.cnpg.io
+    kind: Cluster
+    jsonPointers:
+    - /status
+  - group: apps
+    kind: Deployment
+    name: cnpg-controller-manager
+    namespace: cnpg-system
+    jsonPointers:
+    - /spec/template/metadata/annotations

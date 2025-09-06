@@ -1,0 +1,94 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/instance: postgres
+    app.kubernetes.io/component: database
+spec:
+  instances: 2
+
+  # PostgreSQL version
+  imageName: "ghcr.io/cloudnative-pg/postgresql:16.3"
+
+  # Primary instance configuration
+  primaryUpdateStrategy: unsupervised
+
+  # PostgreSQL configuration parameters
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      maintenance_work_mem: "64MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      work_mem: "4MB"
+      max_wal_size: "1GB"
+      min_wal_size: "80MB"
+
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: appuser
+      secret:
+        name: postgres-app-user
+      dataChecksums: true
+      encoding: UTF8
+      localeCollate: en_US.UTF-8
+      localeCType: en_US.UTF-8
+
+  # Superuser secret reference
+  superuserSecret:
+    name: postgres-superuser-secret
+
+  # Storage configuration using Hetzner volumes
+  storage:
+    size: 10Gi
+    storageClass: hcloud-volumes
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+  # Security context for PostgreSQL pods
+  securityContext:
+    runAsUser: 26
+    runAsGroup: 26
+    fsGroup: 26
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Monitoring configuration (disabled for now)
+  monitoring:
+    enabled: false
+
+  # Node affinity and tolerations for mixed ARM64/x86 cluster
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: postgresql.cnpg.io/cluster
+              operator: In
+              values: 
+              - postgres-cluster
+          topologyKey: kubernetes.io/hostname
+
+  # Tolerations for ARM64 nodes
+  tolerations:
+  - key: architecture
+    value: arm64
+    effect: NoSchedule
