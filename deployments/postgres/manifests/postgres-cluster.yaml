@@ -61,31 +61,10 @@ spec:
       memory: "2Gi"
       cpu: "1000m"
 
-  # Security context for PostgreSQL pods
-  securityContext:
-    runAsUser: 26
-    runAsGroup: 26
-    fsGroup: 26
-    seccompProfile:
-      type: RuntimeDefault
-
-  # Monitoring configuration (disabled for now)
-  monitoring:
-    enabled: false
-
-  # Node affinity and tolerations for mixed ARM64/x86 cluster
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-            - key: postgresql.cnpg.io/cluster
-              operator: In
-              values: 
-              - postgres-cluster
-          topologyKey: kubernetes.io/hostname
+  # Node affinity for better distribution (using nodeAffinity instead of affinity)
+  nodeMaintenanceWindow:
+    inProgress: false
+    reusePVC: true
 
   # Tolerations for ARM64 nodes
   tolerations:
