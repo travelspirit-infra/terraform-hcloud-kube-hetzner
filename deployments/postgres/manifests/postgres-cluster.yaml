@@ -52,14 +52,14 @@ spec:
     size: 10Gi
     storageClass: hcloud-volumes
 
-  # Resource requests and limits
+  # Resource requests and limits  
   resources:
     requests:
       memory: "512Mi"
       cpu: "250m"
     limits:
       memory: "2Gi"
-      cpu: "1000m"
+      cpu: "1"
 
   # Simple pod anti-affinity for better distribution
   affinity:

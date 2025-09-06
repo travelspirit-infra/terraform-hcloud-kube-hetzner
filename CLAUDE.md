@@ -15,10 +15,10 @@
 
 ### Servers
 ```
-Control Plane: 1x CAX21 (4 vCPU, 8GB RAM) - 91.98.16.104 / 2a01:4f8:1c1a:47f9::/64
+Control Plane: 1x control-plane-nbg1 - 91.98.16.104 / 2a01:4f8:1c1a:47f9::/64
 Workers:       
-  - 2x CAX21 (ARM64) - 49.12.232.188 / 91.98.16.108
-  - 1x CX22 (x86)    - 91.98.124.43 (added recently)
+  - 1x agent-arm64 (ARM64) - 91.98.124.43 / 2a01:4f8:c0c:59d2::/64
+  - 1x agent-x86 (x86)     - 91.98.16.108 / 2a01:4f8:1c1b:f096::/64
 ```
 
 ### Load Balancers
@@ -61,8 +61,9 @@ Workers:
 
 ### Networking
 - **Private Network**: k3s-cluster (10.0.0.0/8)
-- **Control Plane Subnet**: 10.255.0.0/16
-- **Worker Subnet**: 10.0.0.0/16
+- **Control Plane Subnet**: 10.255.0.0/16 (10.255.0.101)
+- **ARM64 Worker Subnet**: 10.0.0.0/16 (10.0.0.101)  
+- **x86 Worker Subnet**: 10.1.0.0/16 (10.1.0.101)
 
 ## Access
 
@@ -74,19 +75,19 @@ ssh root@91.98.16.104
 
 ### SSH Access (IPv6 - when available)
 ```bash
-# Control plane
-ssh -6 root@2a01:4f8:1c1b:f096::1
+# Control plane  
+ssh -6 root@2a01:4f8:1c1a:47f9::1
 
 # Workers
-ssh -6 root@2a01:4f8:1c1a:47f9::1  # agent-bqb
-ssh -6 root@2a01:4f8:1c1c:86d8::1  # agent-nld
+ssh -6 root@2a01:4f8:c0c:59d2::1     # agent-arm64
+ssh -6 root@2a01:4f8:1c1b:f096::1    # agent-x86
 ```
 
 ### Using Control Plane as Jump Host
 ```bash
 # Access workers via control plane when IPv6 is down
-ssh -J root@195.201.28.253 root@10.0.0.101  # agent-nld
-ssh -J root@195.201.28.253 root@10.0.0.102  # agent-bqb
+ssh -J root@91.98.16.104 root@10.0.0.101  # agent-arm64
+ssh -J root@91.98.16.104 root@10.1.0.101  # agent-x86
 ```
 
 ### kubectl Access
@@ -142,13 +143,13 @@ ssh root@91.98.16.104 "kubectl get nodes && kubectl get pods -n kube-system"
 ./setup-ssl.sh
 
 # Check certificate status
-ssh -6 root@2a01:4f8:1c1b:f096::1 "kubectl get certificate -A"
+ssh -6 root@2a01:4f8:1c1a:47f9::1 "kubectl get certificate -A"
 
 # Check cert-manager pods
-ssh -6 root@2a01:4f8:1c1b:f096::1 "kubectl get pods -n cert-manager"
+ssh -6 root@2a01:4f8:1c1a:47f9::1 "kubectl get pods -n cert-manager"
 
 # View ingress with SSL
-ssh -6 root@2a01:4f8:1c1b:f096::1 "kubectl get ingress -A"
+ssh -6 root@2a01:4f8:1c1a:47f9::1 "kubectl get ingress -A"
 ```
 
 ### Hetzner CLI
@@ -193,8 +194,8 @@ source hcloud-env.sh  # Load HCLOUD_TOKEN and CLOUDFLARE_API_TOKEN
 - Key files: kube.tf (main), cloudflare.tf (DNS), providers.tf, variables.tf
 
 ## Multi-Architecture Notes
-- **ARM64 nodes**: 3 nodes with `architecture=arm64:NoSchedule` taint
-- **x86 node**: 1 node (k3s-cluster-agent-x86-uro) without architecture taint
+- **ARM64 nodes**: 1 node (k3s-cluster-agent-arm64-bml) with `architecture=arm64:NoSchedule` taint
+- **x86 node**: 1 node (k3s-cluster-agent-x86-zmp) without architecture taint  
 - Deployments targeting ARM64 nodes need tolerations:
   ```yaml
   tolerations:

@@ -61,3 +61,4 @@ spec:
     name: postgresql
   selector:
     cnpg.io/cluster: postgres-cluster
+    cnpg.io/podRole: instance
